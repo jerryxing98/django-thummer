@@ -46,7 +46,13 @@ class WebpageSnapshot(models.Model):
         """Save snapshot image of webpage, and set captured datetime."""
         display = Display(visible=0, size=self._get_capture_resolution())
         display.start()
-        browser = webdriver.Firefox()
+        #browser = webdriver.Firefox()
+        if settings.DEFAULT_DRIVER=='PhantomJS':
+            browser = webdriver.PhantomJS()
+        elif settings.DEFAULT_DRIVER=='Firefox':
+            browser = webdriver.Firefox()   
+        
+        #browser = webdriver.PhantomJS()
         browser.get(self.url)
         self.captured_at = datetime.now()
         png = browser.get_screenshot_as_base64()
