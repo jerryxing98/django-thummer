@@ -16,7 +16,7 @@ THUMBNAIL_DEFAULTS = getattr(settings, 'THUMMER_THUMBNAIL_DEFAULTS',
     {'crop': 'left top', 'upscale': False, 'format': 'JPEG'})
 
 PLACEHOLDER_PATH = getattr(settings, 'THUMMER_PLACEHOLDER_PATH',
-    'thummer/placeholder.png')
+    'root_static/thummer/placeholder.png')
 
 PLACEHOLDER_DEFAULTS = getattr(settings, 'THUMMER_PLACEHOLDER_DEFAULTS',
     {'crop': 'center', 'upscale': False, 'format': 'PNG'})
@@ -27,3 +27,5 @@ QUEUE_SNAPSHOTS = CELERY and getattr(settings, 'THUMMER_QUEUE_SNAPSHOTS', True)
 
 STATICFILES_STORAGE = settings.STATICFILES_STORAGE
 
+DEFAULT_DRIVER = getattr(settings,'DEFAULT_DRIVER','PhantomJS')
+#STATICFILES_STORAGE = settings.MEDIA_ROOT

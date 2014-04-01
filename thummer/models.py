@@ -7,10 +7,12 @@ from django.core.files.storage import get_storage_class
 from django.db import models
 from pyvirtualdisplay import Display
 from selenium import webdriver
-from sorl.thumbnail import ImageField, get_thumbnail as sorl_thumbnail
+#from sorl.thumbnail import ImageField, get_thumbnail as sorl_thumbnail
+from easy_thumbnails.files import get_thumbnailer
+from easy_thumbnails.fields import ThumbnailerImageField
 from thummer import settings, tasks, utils
 from thummer.managers import QuerySetManager
-import base64
+import base64,time
 
 try:
     from hashlib import md5
@@ -21,7 +23,7 @@ except ImportError:
 class WebpageSnapshot(models.Model):
     """Model representing a webpage snapshot."""
     url = models.URLField(db_index=True)
-    image = ImageField(editable=False, storage=settings.STORAGE,
+    image = ThumbnailerImageField(editable=False, thumbnail_storage=settings.STORAGE,
         upload_to=settings.UPLOAD_PATH, null=True)
     capture_width = models.IntegerField(default=1680, editable=False)
     created_at = models.DateTimeField(editable=False, auto_now_add=True)
@@ -44,20 +46,55 @@ class WebpageSnapshot(models.Model):
     
     def _capture(self):
         """Save snapshot image of webpage, and set captured datetime."""
-        display = Display(visible=0, size=self._get_capture_resolution())
-        display.start()
+        #display = Display(visible=0, size=self._get_capture_resolution())
+        #display.start()
         #browser = webdriver.Firefox()
+        browser = webdriver.PhantomJS()
         if settings.DEFAULT_DRIVER=='PhantomJS':
             browser = webdriver.PhantomJS()
         elif settings.DEFAULT_DRIVER=='Firefox':
             browser = webdriver.Firefox()   
         
         #browser = webdriver.PhantomJS()
+        sizes=self._get_capture_resolution()
+        browser.set_window_size(sizes[0], sizes[1])
+        browser.execute_script("""
+        (function () {
+            var y = 0;
+            var step = 100;
+            window.scroll(0, 0);
+ 
+            function f() {
+                if (y < document.body.scrollHeight) {
+                    y += step;
+                    window.scroll(0, y);
+                    setTimeout(f, 50);
+                } else {
+                    window.scroll(0, 0);
+                    document.title += "scroll-done";
+                }
+            }
+ 
+            setTimeout(f, 1000);
+        })();
+        """)
+ 
+        for i in xrange(2):
+            if "scroll-done" in browser.title:
+                break
+        time.sleep(1)
+        
         browser.get(self.url)
+        
+        
         self.captured_at = datetime.now()
+        
+        
         png = browser.get_screenshot_as_base64()
-        browser.quit()
-        display.stop()
+        
+        browser.quit()       
+        
+        #display.stop()
         self.image.save(self._generate_filename(),
             ContentFile(base64.decodestring(png)))
         return True
@@ -75,15 +112,19 @@ class WebpageSnapshot(models.Model):
     def get_absolute_url(self):
         return self.image and self.image.url
     
+
     def get_image(self):
-        return self.image or self.get_placeholder_image()
+        if self.image:
+            return self.image
+        return self.get_placeholder_image()
     
     def get_placeholder_image(self):
         storage_class = get_storage_class(settings.STATICFILES_STORAGE)
         storage = storage_class()
         placeholder = storage.open(settings.PLACEHOLDER_PATH)
-        image = ImageFile(placeholder)
-        image.storage = storage
+        image = ThumbnailerImageField(placeholder)
+        image.thumbnail_storage = storage
+        self.image=image
         return image
     
     def get_thumbnail(self, geometry_string, **kwargs):
@@ -92,23 +133,31 @@ class WebpageSnapshot(models.Model):
             kwargs.setdefault(key, value)
         if not self.image:
             # Placeholder images
+            
             kwargs.update(settings.PLACEHOLDER_DEFAULTS)
+            image = self.get_placeholder_image()
+            print 'url##########################',self.image
         if geometry_string is None:
             # We have to use django's ImageFile, as sorl-thumbnail's ImageField
             # extends File and not ImageFile, so width property is not
             # available.
-            image = ImageFile(self.get_image().file)
+            image = ThumbnailerImageField(self.get_image())
             geometry_string = '%s' %(image.width)
-        return sorl_thumbnail(self.get_image(), geometry_string,  **kwargs)
-    
+        #return sorl_thumbnail(self.get_image(), geometry_string,  **kwargs)
+        wid,lens=geometry_string.split('x')
+        print wid,lens,self.image,"########################"
+        options={'size':(int(wid),int(lens)),'crop':True}
+        return get_thumbnailer(self.image.name).get_thumbnail(options)
+
     def save(self, *args, **kwargs):
         new = not self.pk
         super(WebpageSnapshot, self).save(*args, **kwargs)
         if new:
             if settings.QUEUE_SNAPSHOTS:
-                tasks.capture.delay(pk=self.pk)
+                pass
+                #tasks.capture.delay(pk=self.pk)
             else:
-                tasks.capture(pk=self.pk)
-
+                #tasks.capture(pk=self.pk)
+                self._capture()
 models.signals.pre_delete.connect(utils.delete_image, sender=WebpageSnapshot)
 
