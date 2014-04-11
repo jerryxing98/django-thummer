@@ -147,7 +147,7 @@ class WebpageSnapshot(models.Model):
         wid,lens=geometry_string.split('x')
         print wid,lens,self.image,"########################"
         options={'size':(int(wid),int(lens)),'crop':True}
-        return get_thumbnailer(self.image.name).get_thumbnail(options)
+        return get_thumbnailer(self.image).get_thumbnail(options)
 
     def save(self, *args, **kwargs):
         new = not self.pk
