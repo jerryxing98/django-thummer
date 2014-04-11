@@ -4,8 +4,8 @@ from thummer.meta import VERSION
 
 
 setup(name='django-thummer',
-    author='Matt Austin', author_email='mail@mattaustin.me.uk',
-    url='https://github.com/MattAustin/django-thummer',
+    author='Matt Austin', author_email='jerryxing98@google.com',
+    url='https://github.com/jerryxing98/django-thummer',
     description='A website screenshot and thumbnailing app for Django.',
     long_description=open('README.rst').read(),
     version=str(VERSION),
